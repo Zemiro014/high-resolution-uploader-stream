@@ -1,35 +1,29 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useState } from 'react';
+import { VideoUploader } from './components/VideoUploader';
+import { VideoPlayer } from './components/VideoPlayer';
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [uploadedFileId, setUploadedFileId] = useState(null);
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div style={{ maxWidth: '900px', margin: '0 auto', fontFamily: 'Arial' }}>
+      <h1>Plataforma de Vídeo VOD</h1>
+      
+      <VideoUploader onUploadSuccess={(id) => setUploadedFileId(id)} />
+
+      <div style={{ marginTop: '40px' }}>
+        {uploadedFileId ? (
+          <>
+            <p>Status: Aguardando processamento do MediaConvert...</p>
+            {/* Aqui, no futuro, passaremos a URL .m3u8 vinda do Banco de Dados */}
+            <VideoPlayer fileKey={`aguardando-id-${uploadedFileId}`} />
+          </>
+        ) : (
+          <p>Faça um upload para visualizar o player.</p>
+        )}
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    </div>
+  );
 }
 
-export default App
+export default App;

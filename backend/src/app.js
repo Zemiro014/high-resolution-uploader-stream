@@ -2,6 +2,7 @@ const express = require("express");
 const storageRoutes = require("./routers/storageRoutes");
 
 const app = express();
+app.use(require('cors')());
 app.use(express.json());
 
 // Rotas
