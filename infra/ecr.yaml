@@ -1,0 +1,24 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Repositorios ECR para o Projeto VOD'
+
+Resources:
+  # ECR Repository
+  BackendECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: vod-backend
+      ImageScanningConfiguration:
+        ScanOnPush: true
+
+  FrontendECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: vod-frontend
+      ImageScanningConfiguration:
+        ScanOnPush: true
+
+Outputs:
+  BackendRepoUri:
+    Value: !GetAtt BackendECRRepository.RepositoryUri
+  FrontendRepoUri:
+    Value: !GetAtt FrontendECRRepository.RepositoryUri
