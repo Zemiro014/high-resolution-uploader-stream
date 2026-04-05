@@ -1,0 +1,89 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Pipeline VOD - Upload, Transcodificação e Notificação.
+
+Resources:
+  # --- BUCKETS ---
+  InputBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "input-video-${AWS::AccountId}"
+
+  OutputBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "output-video-${AWS::AccountId}"
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [GET, HEAD]
+            AllowedOrigins: ['*']
+            ExposeHeaders: [ETag, Content-Range, Accept-Ranges, Content-Length, Content-Type]
+
+  # --- ROLES ---
+  MediaConvertRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: [://amazonaws.com] }
+            Action: ['sts:AssumeRole']
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+
+  # --- LAMBDA 1: GATILHO (S3 -> MediaConvert) ---
+  TriggerMediaConvert:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: trigger.handler
+      CodeUri: src/
+      Runtime: nodejs24.x
+      Environment:
+        Variables:
+          MEDIA_CONVERT_ROLE_ARN: !GetAtt MediaConvertRole.Arn
+          OUT_BUCKET: !Ref OutputBucket
+      Events:
+        S3Event:
+          Type: S3
+          Properties:
+            Bucket: !Ref InputBucket
+            Events: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: uploads/
+
+  # --- LAMBDA 2: UPDATER (EventBridge -> API) ---
+  UpdateStatusLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: updater.handler
+      CodeUri: src/
+      Runtime: nodejs24.x
+      Environment:
+        Variables:
+          API_URL: "https://ngrok-free.app"
+
+  # --- EVENTBRIDGE RULE ---
+  MediaConvertRule:
+    Type: AWS::Events::Rule
+    Properties:
+      EventPattern:
+        source: ["aws.mediaconvert"]
+        detail-type: ["MediaConvert Job State Change"]
+        detail:
+          status: ["COMPLETE"]
+      Targets:
+        - Arn: !GetAtt UpdateStatusLambda.Arn
+          Id: "UpdateStatusTarget"
+
+  PermissionForEventsToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref UpdateStatusLambda
+      Action: "lambda:InvokeFunction"
+      Principal: "://amazonaws.com"
+      SourceArn: !GetAtt MediaConvertRule.Arn
