@@ -14,5 +14,31 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  backend:
+    build: ./backend
+    container_name: vod_backend
+    ports:
+      - "3000:3000"
+    environment:
+      # O Host do banco é o nome do serviço 'db'
+      DATABASE_URL: "postgresql://dev_user:dev_password@db:5432/s3_project_db?schema=public"
+      AWS_ACCESS_KEY_ID: ${Access_Key_ID}
+      AWS_SECRET_ACCESS_KEY: ${Secret_Access_Key}
+      AWS_REGION: ${Region}
+      AWS_S3_BUCKET_NAME: ${Bucket_Name}
+    depends_on:
+      - db
+
+  frontend:
+    build: ./frontend
+    container_name: vod_frontend
+    ports:
+      - "5173:5173"
+    environment:
+      # URL interna ou localhost se acessar via browser
+      VITE_API_URL: http://localhost:3000/api
+    depends_on:
+      - backend
+
 volumes:
   postgres_data:
