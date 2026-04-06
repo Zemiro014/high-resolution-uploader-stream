@@ -4,28 +4,6 @@ const s3Client = require("../config/S3");
 const { PrismaClient } = require("../../prisma/generated/client")
 const prisma = new PrismaClient();
 
-const { STSClient, GetCallerIdentityCommand } = require("@aws-sdk/client-sts");
-
-// Função para validar a conta no console do Node
-const logAwsIdentity = async () => {
-  const sts = new STSClient({
-    region: process.env.Region,
-    credentials: {
-      accessKeyId: process.env.Access_Key_ID,
-      secretAccessKey: process.env.Secret_Access_Key,
-    },
-  });
-  try {
-    const { Account, Arn } = await sts.send(new GetCallerIdentityCommand({}));
-    console.log(`--- AWS IDENTITY CHECK ---`);
-    console.log(`Account ID: ${Account}`);
-    console.log(`User ARN: ${Arn}`);
-    console.log(`--------------------------`);
-  } catch (err) {
-    console.error("ERRO: Falha ao validar credenciais AWS no .env", err.message);
-  }
-};
-
 exports.getUploadUrl = async (req, res) => {
     const { fileName, fileType } = req.body;
 
@@ -45,7 +23,7 @@ exports.getUploadUrl = async (req, res) => {
     });
 
     const command = new PutObjectCommand({
-        Bucket: process.env.Bucket_Name,
+        Bucket: process.env.S3_BUCKET_NAME,
         Key: fileKey,
         ContentType: fileType,
     });

@@ -152,6 +152,12 @@ Resources:
         - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
         - arn:aws:iam::aws:policy/AmazonS3FullAccess
 
+  BackendLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/vod-backend-task
+      RetentionInDays: 7 # Limpa logs velhos automaticamente
+
   # --- BACKEND ECS FARGATE ---
   BackendTask:
     Type: AWS::ECS::TaskDefinition
@@ -168,6 +174,12 @@ Resources:
           Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/vod-backend:latest
           PortMappings:
             - ContainerPort: 3000
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: /ecs/vod-backend-task
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
           Environment:
             - Name: DATABASE_URL
               # O CloudFormation resolve o Endpoint do banco automaticamente aqui!
@@ -302,7 +314,7 @@ Outputs:
   FrontendBucketName:
     Description: Nome do Bucket para configurar no GitHub Secrets (S3_BUCKET_NAME)
     Value: !Ref FrontendBucket
-  
+
   CloudFrontDistributionId:
     Description: ID da Distribuição para configurar no GitHub Secrets (CLOUDFRONT_DIST_ID)
     Value: !Ref MyDistribution
