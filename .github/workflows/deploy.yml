@@ -35,7 +35,7 @@ jobs:
     # Opcional: Forçar o ECS a baixar a imagem nova imediatamente
     - name: Update ECS Service
       run: |
-        aws ecs update-service --cluster vod-cluster --service BackendService --force-new-deployment
+        aws ecs update-service --cluster vod-cluster --service vod-full-pipeline-BackendService-5dDBEYxvSqpd --force-new-deployment
 
     # --- FRONTEND (Nova estratégia: S3 + CloudFront) ---
     - name: Build React Frontend
