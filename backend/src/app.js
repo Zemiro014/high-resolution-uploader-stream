@@ -1,8 +1,13 @@
 const express = require("express");
 const storageRoutes = require("./routers/storageRoutes");
+const cors = require('cors');
+
+const corsOptions = {
+  origin: process.env.NODE_ENV === 'production' ? false : 'http://localhost:5173'
+};
 
 const app = express();
-app.use(require('cors')());
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Rotas

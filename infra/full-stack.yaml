@@ -297,3 +297,15 @@ Outputs:
   BackendUrl:
     Description: URL do Backend (IP Publico sera gerado pelo ECS)
     Value: !Sub Acesse o console do ECS para pegar o IP Publico da Task na porta 3000
+    
+  FrontendBucketName:
+    Description: Nome do Bucket para configurar no GitHub Secrets (S3_BUCKET_NAME)
+    Value: !Ref FrontendBucket
+  
+  CloudFrontDistributionId:
+    Description: ID da Distribuição para configurar no GitHub Secrets (CLOUDFRONT_DIST_ID)
+    Value: !Ref MyDistribution
+
+  CloudFrontDomainName:
+    Description: URL final do seu projeto para acessar no navegador
+    Value: !GetAtt MyDistribution.DomainName
