@@ -37,21 +37,20 @@ jobs:
       run: |
         aws ecs update-service --cluster vod-cluster --service vod-full-pipeline-BackendService-5dDBEYxvSqpd --force-new-deployment
 
-    # --- FRONTEND (Nova estratégia: S3 + CloudFront) ---
+    # --- FRONTEND (Ajustado para Vite) ---
     - name: Build React Frontend
       run: |
         cd frontend
         npm install
-        npm run build # Gera a pasta 'build' ou 'dist'
+        npm run build 
 
     - name: Sync Files to S3
       run: |
-        # Substitui o conteúdo do bucket pelos arquivos novos
-        aws s3 sync ./frontend/build s3://${{ secrets.S3_BUCKET_NAME }} --delete
+        # Usando 'dist' que é o padrão do Vite
+        aws s3 sync ./frontend/dist s3://${{ secrets.S3_BUCKET_NAME }} --delete
 
     - name: Invalidate CloudFront Cache
       run: |
-        # Força o CloudFront a atualizar os arquivos para os usuários
         aws cloudfront create-invalidation \
           --distribution-id ${{ secrets.CLOUDFRONT_DIST_ID }} \
           --paths "/*"
