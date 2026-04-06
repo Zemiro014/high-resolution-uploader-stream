@@ -43,7 +43,6 @@ exports.getUploadUrl = async (req, res) => {
 
 exports.confirmUpload = async (req, res) => {
   const { fileId } = req.params;
-  logAwsIdentity();
   try {
     const updatedFile = await prisma.file.update({
       where: { id: Number(fileId) },
