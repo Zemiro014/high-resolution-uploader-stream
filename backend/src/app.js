@@ -10,6 +10,9 @@ const app = express();
 app.use(cors(corsOptions));
 app.use(express.json());
 
+app.get("/", (req, res) => {
+  res.status(200).send("OK");
+});
 // Rotas
 app.use("/api/storage", storageRoutes);
 
