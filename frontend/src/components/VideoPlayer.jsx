@@ -3,15 +3,15 @@ import shaka from 'shaka-player/dist/shaka-player.ui.js';
 import PropTypes from 'prop-types';
 import 'shaka-player/dist/controls.css'; // Estilos padrão do Google
 
-export function VideoPlayer({ fileKey }) {
+export function VideoPlayer({ videoUrl }) {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
 
   // Gere a URL (Lembre-se: se o bucket for privado, use a URL pré-assinada)
-  const videoUrl = `https://amazonaws.com{fileKey}`;
+  // const videoUrl = `https://amazonaws.com{fileKey}`;
 
   useEffect(() => {
-    if (!fileKey) return;
+    if (!videoUrl) return;
 
     const player = new shaka.Player(videoRef.current);
 
@@ -37,9 +37,9 @@ export function VideoPlayer({ fileKey }) {
       player.destroy();
       ui.destroy();
     };
-  }, [fileKey, videoUrl]);
+  }, [videoUrl]);
 
-  if (!fileKey) return <p>Aguardando upload ou seleção de vídeo...</p>;
+  if (!videoUrl) return <p>Aguardando upload ou seleção de vídeo...</p>;
 
   return (
     <div 
@@ -57,5 +57,5 @@ export function VideoPlayer({ fileKey }) {
 }
 
 VideoPlayer.propTypes = {
-  fileKey: PropTypes.string.isRequired,
+  videoUrl: PropTypes.string.isRequired,
 };

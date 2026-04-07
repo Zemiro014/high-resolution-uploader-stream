@@ -60,7 +60,13 @@ Resources:
       SubnetId: !Ref PublicSubnet1
       RouteTableId: !Ref PublicRouteTable
 
-  # --- BANCO DE DADOS (RDS) ---
+  Subnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  # ------------------ BANCO DE DADOS (RDS) -----------------------------------
   DBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
@@ -94,6 +100,18 @@ Resources:
           ToPort: 5432
           CidrIp: 0.0.0.0/0
 
+  # Security Group para o Load Balancer (Porta 80)
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Permite entrada na 80 para o CloudFront
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
   # --- LOAD BALANCER ---
   PublicLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
@@ -103,7 +121,7 @@ Resources:
         - !Ref PublicSubnet1
         - !Ref PublicSubnet2
       SecurityGroups:
-        - !Ref BackendSG
+        - !Ref ALBSecurityGroup
         # O SG já permite a porta 3000
       Type: application
 
@@ -118,6 +136,11 @@ Resources:
       TargetType: ip
       HealthCheckPath: / # Certifique-se que seu Node.js responde 200 aqui
       HealthCheckIntervalSeconds: 30
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: '60'
+        - Key: stickiness.enabled
+          Value: 'true'
 
   # O "Ouvinte": Escuta na porta 80 do ALB e manda para a porta 3000 do Node
   ALBListener:
@@ -135,11 +158,26 @@ Resources:
     Properties:
       LogGroupName: /ecs/vod-backend-task
       RetentionInDays: 7 # Limpa logs velhos automaticamente
-    # --- BUCKET PARA ARMAZENAR OS VÍDEOS ---
+
+  # 1. Permissão para o S3 chamar a Lambda
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt VideoTriggerLambda.Arn
+      Principal: 's3.amazonaws.com'
+      SourceArn: !Sub arn:aws:s3:::video-storage-${AWS::AccountId}
+
+  # --- BUCKET PARA ARMAZENAR OS VÍDEOS ---
   VideoStorageBucket:
     Type: AWS::S3::Bucket
+    DependsOn: LambdaInvokePermission
     Properties:
       BucketName: !Sub video-storage-${AWS::AccountId}
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Function: !GetAtt VideoTriggerLambda.Arn
       CorsConfiguration:
         CorsRules:
           - AllowedHeaders:
@@ -152,6 +190,199 @@ Resources:
               - '*'
               # Em produção, use o DNS do CloudFront
             MaxAge: 3000
+
+  # --- BUCKET DE SAÍDA (VÍDEOS PROCESSADOS) ---
+  VideoProcessedBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub video-processed-${AWS::AccountId}
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - GET
+            AllowedOrigins:
+              - '*'
+
+  # --- ROLE PARA O MEDIACONVERT ---
+  MediaConvertRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: mediaconvert.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/AmazonAPIGatewayInvokeFullAccess # Para logs e métricas
+
+  MediaConvertRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Monitora jobs do MediaConvert
+      EventPattern:
+        source:
+          - aws.mediaconvert
+        detail-type:
+          - MediaConvert Job State Change
+        detail:
+          status:
+            - COMPLETE
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt NotifyBackendLambda.Arn
+          Id: NotifyBackendTarget
+
+  # Permissão para o EventBridge chamar a Lambda
+  PermissionForEventsToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref NotifyBackendLambda
+      Action: lambda:InvokeFunction
+      Principal: 'events.amazonaws.com'
+      SourceArn: !GetAtt MediaConvertRule.Arn
+    # --- ROLE PARA A LAMBDA ---
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LambdaMediaConvertPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - mediaconvert:DescribeEndpoints
+                  - mediaconvert:CreateJob
+                  - iam:PassRole
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+    # Definição da Lambda e Permissão de Invocação pelo S3
+  VideoTriggerLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: s3-to-mediaconvert
+      Handler: index.lambda_handler # 'index' é o nome do arquivo, 'lambda_handler' a função
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: python3.11
+      Timeout: 30
+      Environment:
+        Variables:
+          OUTPUT_BUCKET: !Ref VideoProcessedBucket
+          MEDIACONVERT_ROLE_ARN: !GetAtt MediaConvertRole.Arn
+          MEDIACONVERT_ENDPOINT: https://amazonaws.com
+      Code:
+        ZipFile: |
+          import boto3
+          import os
+          import urllib.parse
+
+          def lambda_handler(event, context):
+              # 1. Pegar dados do arquivo que subiu no S3
+              bucket = event['Records'][0]['s3']['bucket']['name']
+              key = urllib.parse.unquote_plus(event['Records'][0]['s3']['object']['key'])
+              output_bucket = os.environ['OUTPUT_BUCKET']
+              mc_role = os.environ['MEDIACONVERT_ROLE_ARN']
+
+              # 2. Buscar o endpoint específico da conta automaticamente
+              mc_client = boto3.client('mediaconvert', region_name=os.environ['AWS_REGION'])
+              endpoints = mc_client.describe_endpoints()
+
+              # Criar cliente específico para o endpoint da conta
+              client = boto3.client('mediaconvert', endpoint_url=endpoints['Endpoints'][0]['Url'])
+
+              # 3. Configuração do Job (MP4 H.264)
+              job_settings = {
+                  "Inputs": [{
+                      "FileInput": f"s3://{bucket}/{key}"
+                  }],
+                  "UserMetadata": {
+                      "fileId": str(file_id) # Você deve extrair isso do nome do arquivo ou tags
+                  },
+                  "OutputGroups": [{
+                      "Name": "File Group",
+                      "OutputGroupSettings": {
+                          "Type": "FILE_GROUP_SETTINGS",
+                          "FileGroupSettings": {
+                              "Destination": f"s3://{output_bucket}/processed/"
+                          }
+                      },
+                      "Outputs": [{
+                          "VideoDescription": {
+                              "CodecSettings": {
+                                  "Codec": "H_264",
+                                  "H264Settings": {
+                                      "Bitrate": 5000000,
+                                      "RateControlMode": "QVBR",
+                                      "SceneChangeDetect": "ENABLED"
+                                  }
+                              }
+                          },
+                          "ContainerSettings": { "Container": "MP4" }
+                      }]
+                  }]
+              }
+
+              try:
+                  response = client.create_job(Role=mc_role, Settings=job_settings)
+                  print(f"Job Created: {response['Job']['Id']}")
+              except Exception as e:
+                  print(f"Error creating job: {str(e)}")
+                  raise e
+
+  # Lambda que avisa o Node.js
+  NotifyBackendLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: python3.11
+      Environment:
+        Variables:
+          BACKEND_URL: !Sub http://${PublicLoadBalancer.DNSName}/api/storage/confirm-upload
+      Code:
+        ZipFile: |
+          import json
+          import urllib.request
+          import os
+
+          def lambda_handler(event, context):
+              # O MediaConvert envia o job_id e os detalhes do arquivo
+              job_id = event['detail']['jobId']
+              status = event['detail']['status']
+
+              # No MediaConvert, podemos passar metadados (como o fileId do seu RDS)
+              # Por enquanto, vamos assumir que você enviará o fileId no Job
+              user_metadata = event['detail'].get('userMetadata', {})
+              file_id = user_metadata.get('fileId')
+              output_file = event['detail']['outputGroupDetails'][0]['outputDetails'][0]['outputFilePaths'][0]
+              file_name = output_file.split('/')[-1]
+
+              if status == 'COMPLETE' and file_id:
+                  url = f"{os.environ['BACKEND_URL']}/{file_id}"
+                  data = json.dumps({"status": "UPLOADED", "processedKey": f"processed/{file_name}"}).encode('utf-8')
+
+                  req = urllib.request.Request(url, data=data, method='PATCH')
+                  req.add_header('Content-Type', 'application/json')
+
+                  with urllib.request.urlopen(req) as res:
+                      print(f"Backend notificado: {res.getcode()}")
 
   # --- ECS FARGATE ---
   ECSCluster:
@@ -250,16 +481,17 @@ Resources:
           SecurityGroups:
             - !Ref BackendSG
 
+  # 2. AJUSTE: Security Group do Backend (Porta 3000 vinda do ALB)
   BackendSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Allow access to Backend
+      GroupDescription: Allow access to Backend from ALB
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 3000
           ToPort: 3000
-          CidrIp: 0.0.0.0/0
+          SourceSecurityGroupId: !Ref ALBSecurityGroup # Referência ao SG do ALB
 
   # --- BUCKET PARA O REACT (FRONTEND) ---
   FrontendBucket:
@@ -293,6 +525,19 @@ Resources:
               CanonicalUser: !GetAtt CloudFrontOriginAccessIdentity.S3CanonicalUserId
             Action: s3:GetObject
             Resource: !Sub ${FrontendBucket.Arn}/*
+      # Política para o CloudFront ler o bucket de processados
+  VideoProcessedBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref VideoProcessedBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              CanonicalUser: !GetAtt CloudFrontOriginAccessIdentity.S3CanonicalUserId
+            Action: s3:GetObject
+            Resource: !Sub ${VideoProcessedBucket.Arn}/*
 
   # --- CLOUDFRONT COMO PROXY (REACT + API) --
   MyDistribution:
@@ -307,12 +552,15 @@ Resources:
             DomainName: !GetAtt FrontendBucket.RegionalDomainName
             S3OriginConfig:
               OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}
-
+          - Id: ProcessedVideosOrigin
+            DomainName: !GetAtt VideoProcessedBucket.RegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}
           # Origem 2: O Load Balancer (ALB) que aponta para o seu Java no ECS
           - Id: BackendOrigin
             DomainName: !GetAtt PublicLoadBalancer.DNSName # Pega o DNS do ALB dinamicamente
             CustomOriginConfig:
-              HTTPPort: 3000
+              HTTPPort: 80
               OriginProtocolPolicy: http-only
 
         # Comportamento Padrão: Entrega o React (S3)
@@ -338,14 +586,36 @@ Resources:
             ForwardedValues:
               QueryString: true
               Headers:
-                - Origin
+                - Host # <--- FUNDAMENTAL para resolver o 504
+                - Origin # Necessário para o CORS
+                - Content-Type # Necessário para o POST do Node
                 - Access-Control-Request-Headers
                 - Access-Control-Request-Method
               Cookies:
                 Forward: all
             MinTTL: 0
             DefaultTTL: 0
-            MaxTTL: 0 # API não pode ter cache para a Presigned URL
+            MaxTTL: 0
+              # API não pode ter cache para a Presigned URL
+              # 2. ROTA ADICIONADA: Para os vídeos processados (S3)
+          - PathPattern: /processed/*
+            TargetOriginId: ProcessedVideosOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+            ForwardedValues:
+              QueryString: false
+              # Encaminha Origin para o S3 lidar com o CORS do Player de Vídeo
+              Headers:
+                - Origin
+                - Access-Control-Request-Headers
+                - Access-Control-Request-Method
+              Cookies:
+                Forward: none
+            MinTTL: 86400 # Pode cachear vídeos por 24h
+            DefaultTTL: 86400
 
 Outputs:
   BackendUrl:
