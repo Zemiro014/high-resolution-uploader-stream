@@ -35,7 +35,7 @@ export function VideoUploader({ onUploadSuccess }) {
       });
 
       // 3. Confirmar upload no Backend para disparar o próximo passo (MediaConvert)
-      const { data: confirmationData } = await storageService.confirmUpload(fileId)
+      const { data: confirmationData } = await storageService.confirmUpload(fileId, { status: "PROCESSING" })
       const { message, videoUrl} = confirmationData;
 
       console.log("VIDEO URL: "+videoUrl)

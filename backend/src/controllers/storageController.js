@@ -43,14 +43,14 @@ exports.getUploadUrl = async (req, res) => {
 
 exports.confirmUpload = async (req, res) => {
   const { fileId } = req.params;
-  const { status, processedKey } = req.body;
-  const cloudfrontDomain = "https://cloudfront.net";
+  const status = (req.body && req.body.status) ? req.body.status : "PROCESSING";
+
   console.log("STATUUUUUUUUUUUSSSS: "+status)
-  console.log("PROCESS KEY: "+processedKey)
+  
   try {
     const updatedFile = await prisma.file.update({
       where: { id: Number(fileId) },
-      data: { status: status, videoUrl: `${cloudfrontDomain}/${processedKey}` } // Ou "SUCCESS" como preferir
+      data: { status: status, ...(processedKey && { videoUrl: `https://cloudfront.net{processedKey}` }) } // Ou "SUCCESS" como preferir
     });
     console.log("VIDEO URL: "+updatedFile.videoUrl)
     res.json({ message: "URL do vídeo atualizada!", videoUrl: updatedFile.videoUrl });
