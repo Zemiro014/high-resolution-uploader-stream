@@ -26,6 +26,9 @@ exports.getUploadUrl = async (req, res) => {
         Bucket: process.env.S3_BUCKET_NAME,
         Key: fileKey,
         ContentType: fileType,
+        Metadata: {
+          "fileid": String(fileRecord.id) // <--- ADICIONE ISSO
+        }
     });
 
     try {
@@ -46,7 +49,7 @@ exports.confirmUpload = async (req, res) => {
   const status = (req.body && req.body.status) ? req.body.status : "PROCESSING";
 
   console.log("STATUUUUUUUUUUUSSSS: "+status)
-  
+
   try {
     const updatedFile = await prisma.file.update({
       where: { id: Number(fileId) },
