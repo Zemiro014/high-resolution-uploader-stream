@@ -21,9 +21,9 @@ export function VideoUploader({ onUploadSuccess }) {
     try {
       // 1. Obter URL pré-assinada do seu Backend Node.js
       // Enviamos o nome e tipo para o backend registrar no Postgres como PENDING
-      const { presignedUrlResponse } = await storageService.getPresignedUrl(file.name, file.type);
+      const { data: presignedData } = await storageService.getPresignedUrl(file.name, file.type);
 
-      const { uploadUrl, fileId } = presignedUrlResponse;
+      const { uploadUrl, fileId } = presignedData;
 
       // 2. Upload Direto para o S3 usando a URL recebida
       await axios.put(uploadUrl, file, {
@@ -35,8 +35,8 @@ export function VideoUploader({ onUploadSuccess }) {
       });
 
       // 3. Confirmar upload no Backend para disparar o próximo passo (MediaConvert)
-      const { confirmUploadResponse } = await storageService.confirmUpload(fileId)
-      const { message, videoUrl} = confirmUploadResponse;
+      const { data: confirmationData } = await storageService.confirmUpload(fileId)
+      const { message, videoUrl} = confirmationData;
 
       console.log("VIDEO URL: "+videoUrl)
 
