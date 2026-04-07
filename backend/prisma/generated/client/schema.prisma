@@ -19,5 +19,6 @@ model File {
   fileKey   String   @unique
   fileType  String
   status    String   @default("PENDING") // PENDING, UPLOADED
+  videoUrl  String? // O '?' indica que o campo é opcional (pode ser nulo até o vídeo processar)
   createdAt DateTime @default(now())
 }

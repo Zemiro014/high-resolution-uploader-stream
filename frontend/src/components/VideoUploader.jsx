@@ -38,6 +38,8 @@ export function VideoUploader({ onUploadSuccess }) {
       const { confirmUploadResponse } = await storageService.confirmUpload(fileId)
       const { message, videoUrl} = confirmUploadResponse;
 
+      console.log("VIDEO URL: "+videoUrl)
+
       alert(message);
       
       // Notifica o componente pai (App.jsx) que o upload terminou
