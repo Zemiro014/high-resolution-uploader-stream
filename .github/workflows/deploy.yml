@@ -42,7 +42,9 @@ jobs:
       run: |
         cd frontend
         npm install
-        npm run build 
+        npm run build
+      env:
+        VITE_API_URL: /api
 
     - name: Sync Files to S3
       run: |
