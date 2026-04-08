@@ -107,6 +107,7 @@ exports.getUploadUrl = async (req, res) => {
 exports.confirmUpload = async (req, res) => {
   const { fileid } = req.params;
   const status = (req.body && req.body.status) ? req.body.status : "PROCESSING";
+  const { processedKey } = req.body; 
 
   console.log("STATUUUUUUUUUUUSSSS: "+status)
   console.log("FILE ID CHEGOU NO confirmUpload: "+fileid)
@@ -129,6 +130,6 @@ exports.confirmUpload = async (req, res) => {
     res.json({ message: "URL do vídeo atualizada!", videoUrl: updatedFile.videoUrl });
   } catch (err) {
     console.error("Erro Prisma:", err);
-    res.status(404).json({ err: "Erro ao atualizar status" });
+    res.status(500).json({ error: "Erro interno ao atualizar banco" });
   }
 };
