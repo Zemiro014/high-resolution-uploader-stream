@@ -189,6 +189,8 @@ Resources:
             AllowedOrigins:
               - '*'
               # Em produção, use o DNS do CloudFront
+            ExposedHeaders:
+              - 'ETag' # OBRIGATÓRIO para Multipart
             MaxAge: 3000
 
   # --- BUCKET DE SAÍDA (VÍDEOS PROCESSADOS) ---
@@ -327,8 +329,8 @@ Resources:
               metadata = response.get('Metadata', {})
               print(f"DEBUG METADATA COMPLETO: {metadata}")
               # IMPORTANTE: S3 converte metadados para minúsculas.
-              # No Node use "fileId", aqui busque "fileId".
-              file_id = response['Metadata'].get('fileId')
+              # No Node use "fileid", aqui busque "fileid".
+              file_id = response['Metadata'].get('fileid')
               print(f"✅ FILE ID NO VideoTriggerLambda: {file_id}")
 
               job_settings = {
@@ -364,7 +366,7 @@ Resources:
 
               # 2. Crie os metadados separadamente
               user_metadata = {
-                  "fileId": str(file_id) if file_id else "unknown"
+                  "fileid": str(file_id) if file_id else "unknown"
               }
 
               try:
@@ -400,7 +402,7 @@ Resources:
                   detail = event.get('detail', {})
                   status = detail.get('status')
                   user_metadata = detail.get('userMetadata', {})
-                  file_id = user_metadata.get('fileId')
+                  file_id = user_metadata.get('fileid')
                   print(f"✅ FILE ID NO NotifyBackendLambda: {file_id}")
                   
                   # Pega o caminho do arquivo processado com segurança
@@ -432,7 +434,7 @@ Resources:
                       with urllib.request.urlopen(req) as res:
                           print(f"✅ Backend notificado com sucesso: {res.getcode()}")
                   else:
-                      print(f"Job não concluído ou sem fileId. Status: {status}, FileId: {file_id}")
+                      print(f"Job não concluído ou sem fileid. Status: {status}, Fileid: {file_id}")
                       
               except Exception as e:
                   print(f"❌ Erro na Lambda de Notificação: {str(e)}")

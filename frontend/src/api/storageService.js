@@ -5,7 +5,16 @@ const api = axios.create({
 });
 
 export const storageService = {
-      // 1. Pede a URL de upload
+  startUpload: (fileName, fileType) => 
+    api.post('/storage/start-multipart', { fileName, fileType }),
+
+  getPartUrl: (fileKey, uploadId, partNumber) => 
+    api.post('/storage/part-url', { fileKey, uploadId, partNumber }),
+
+  completeUpload: (fileKey, uploadId, parts) => 
+    api.post('/storage/complete-multipart', { fileKey, uploadId, parts }),
+
+  // 1. Pede a URL de upload
   getPresignedUrl: (fileName, fileType) => 
     api.post('/storage/generate-upload-url', { fileName, fileType }),
 
