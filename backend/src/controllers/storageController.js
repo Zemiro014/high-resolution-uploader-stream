@@ -27,7 +27,7 @@ exports.getUploadUrl = async (req, res) => {
         Key: fileKey,
         ContentType: fileType,
         Metadata: {
-          "fileid": String(fileRecord.id) // <--- ADICIONE ISSO
+          "fileId": String(fileRecord.id) // <--- ADICIONE ISSO
         }
     });
 
@@ -49,6 +49,7 @@ exports.confirmUpload = async (req, res) => {
   const status = (req.body && req.body.status) ? req.body.status : "PROCESSING";
 
   console.log("STATUUUUUUUUUUUSSSS: "+status)
+  console.log("FILE ID CHEGOU NO confirmUpload: "+fileId)
 
   try {
     const currentFile = await prisma.file.findUnique({ where: { id: Number(fileId) } });

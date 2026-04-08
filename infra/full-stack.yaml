@@ -327,6 +327,7 @@ Resources:
               # IMPORTANTE: S3 converte metadados para minúsculas.
               # No Node use "fileId", aqui busque "fileId".
               file_id = response['Metadata'].get('fileId')
+              print(f"✅ FILE ID NO VideoTriggerLambda: {file_id}")
 
               job_settings = {
                   "Inputs": [{
@@ -398,6 +399,7 @@ Resources:
                   status = detail.get('status')
                   user_metadata = detail.get('userMetadata', {})
                   file_id = user_metadata.get('fileId')
+                  print(f"✅ FILE ID NO NotifyBackendLambda: {file_id}")
                   
                   # Pega o caminho do arquivo processado com segurança
                   output_groups = detail.get('outputGroupDetails', [])
