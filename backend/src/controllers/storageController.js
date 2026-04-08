@@ -51,11 +51,19 @@ exports.confirmUpload = async (req, res) => {
   console.log("STATUUUUUUUUUUUSSSS: "+status)
 
   try {
+    const currentFile = await prisma.file.findUnique({ where: { id: Number(fileId) } });
+    
+    // Se o status já for o mesmo, apenas retorne 200 sem fazer nada
+    if (currentFile?.status === status) {
+      return res.json({ message: "Status já atualizado", file: currentFile });
+    }
+    
     const updatedFile = await prisma.file.update({
       where: { id: Number(fileId) },
       data: { status: status, ...(processedKey && { videoUrl: `https://cloudfront.net{processedKey}` }) } // Ou "SUCCESS" como preferir
     });
     console.log("VIDEO URL: "+updatedFile.videoUrl)
+    console.log(`✅ Registro ${fileId} movido para: ${status}`);
     res.json({ message: "URL do vídeo atualizada!", videoUrl: updatedFile.videoUrl });
   } catch (err) {
     res.status(404).json({ error: "Arquivo não encontrado ou erro na atualização" });

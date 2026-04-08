@@ -165,7 +165,7 @@ Resources:
     Properties:
       Action: lambda:InvokeFunction
       FunctionName: !GetAtt VideoTriggerLambda.Arn
-      Principal: 's3.amazonaws.com'
+      Principal: s3.amazonaws.com
       SourceArn: !Sub arn:aws:s3:::video-storage-${AWS::AccountId}
 
   # --- BUCKET PARA ARMAZENAR OS VÍDEOS ---
@@ -243,9 +243,10 @@ Resources:
     Properties:
       FunctionName: !Ref NotifyBackendLambda
       Action: lambda:InvokeFunction
-      Principal: 'events.amazonaws.com'
+      Principal: events.amazonaws.com
       SourceArn: !GetAtt MediaConvertRule.Arn
-    # --- ROLE PARA A LAMBDA ---
+
+  # --- ROLE PARA A LAMBDA ---
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -257,23 +258,34 @@ Resources:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: LambdaMediaConvertPolicy
+        - PolicyName: LambdaS3AndMediaConvertPolicy
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
+              # Permissão para ler o vídeo e os metadados (resolve o 403)
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectTagging
+                Resource: !Sub arn:aws:s3:::video-storage-${AWS::AccountId}/*
+
+              # Permissão para o MediaConvert
               - Effect: Allow
                 Action:
                   - mediaconvert:DescribeEndpoints
                   - mediaconvert:CreateJob
                   - iam:PassRole
                 Resource: '*'
+
+              # Logs básicos
               - Effect: Allow
                 Action:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                 Resource: arn:aws:logs:*:*:*
-    # Definição da Lambda e Permissão de Invocação pelo S3
+
+  # Definição da Lambda e Permissão de Invocação pelo S3
   VideoTriggerLambda:
     Type: AWS::Lambda::Function
     Properties:
@@ -295,26 +307,31 @@ Resources:
 
           def lambda_handler(event, context):
               # 1. Pegar dados do arquivo que subiu no S3
+              # Adicionado [0] para pegar o primeiro registro do evento
               bucket = event['Records'][0]['s3']['bucket']['name']
               key = urllib.parse.unquote_plus(event['Records'][0]['s3']['object']['key'])
               output_bucket = os.environ['OUTPUT_BUCKET']
               mc_role = os.environ['MEDIACONVERT_ROLE_ARN']
 
-              # 2. Buscar o endpoint específico da conta automaticamente
+              # 2. Buscar o endpoint específico da conta
               mc_client = boto3.client('mediaconvert', region_name=os.environ['AWS_REGION'])
               endpoints = mc_client.describe_endpoints()
+              endpoint_url = endpoints['Endpoints'][0]['Url']
 
               # Criar cliente específico para o endpoint da conta
-              client = boto3.client('mediaconvert', endpoint_url=endpoints['Endpoints'][0]['Url'])
+              client = boto3.client('mediaconvert', endpoint_url=endpoint_url)
 
-              # 3. Configuração do Job (MP4 H.264)
+              # 3. Busca o ID nos metadados (via head_object)
+              s3_client = boto3.client('s3')
+              response = s3_client.head_object(Bucket=bucket, Key=key)
+              # IMPORTANTE: S3 converte metadados para minúsculas.
+              # No Node use "fileId", aqui busque "fileId".
+              file_id = response['Metadata'].get('fileId')
+
               job_settings = {
                   "Inputs": [{
                       "FileInput": f"s3://{bucket}/{key}"
                   }],
-                  "UserMetadata": {
-                      "fileId": str(file_id) # Você deve extrair isso do nome do arquivo ou tags
-                  },
                   "OutputGroups": [{
                       "Name": "File Group",
                       "OutputGroupSettings": {
@@ -328,8 +345,11 @@ Resources:
                               "CodecSettings": {
                                   "Codec": "H_264",
                                   "H264Settings": {
-                                      "Bitrate": 5000000,
+                                      "MaxBitrate": 5000000,
                                       "RateControlMode": "QVBR",
+                                      "QvbrSettings": {
+                                            "QvbrQualityLevel": 7       # Nível de qualidade (1-10, 7 é ótimo para HD)
+                                        },
                                       "SceneChangeDetect": "ENABLED"
                                   }
                               }
@@ -339,11 +359,21 @@ Resources:
                   }]
               }
 
+              # 2. Crie os metadados separadamente
+              user_metadata = {
+                  "fileId": str(file_id) if file_id else "unknown"
+              }
+
               try:
-                  response = client.create_job(Role=mc_role, Settings=job_settings)
-                  print(f"Job Created: {response['Job']['Id']}")
+                  # 3. Passe o UserMetadata FORA do Settings
+                  response = client.create_job(
+                      Role=mc_role, 
+                      Settings=job_settings,
+                      UserMetadata=user_metadata # <-- O lugar correto é aqui
+                  )
+                  print(f"✅ Job Created: {response['Job']['Id']}")
               except Exception as e:
-                  print(f"Error creating job: {str(e)}")
+                  print(f"❌ Error creating job: {str(e)}")
                   raise e
 
   # Lambda que avisa o Node.js
@@ -363,26 +393,46 @@ Resources:
           import os
 
           def lambda_handler(event, context):
-              # O MediaConvert envia o job_id e os detalhes do arquivo
-              job_id = event['detail']['jobId']
-              status = event['detail']['status']
+              try:
+                  detail = event.get('detail', {})
+                  status = detail.get('status')
+                  user_metadata = detail.get('userMetadata', {})
+                  file_id = user_metadata.get('fileId')
+                  
+                  # Pega o caminho do arquivo processado com segurança
+                  output_groups = detail.get('outputGroupDetails', [])
+                  if not output_groups:
+                      print("Nenhum grupo de saída encontrado")
+                      return
+                  
+                  output_file = output_groups[0]['outputDetails'][0]['outputFilePaths'][0]
+                  file_name = output_file.split('/')[-1]
 
-              # No MediaConvert, podemos passar metadados (como o fileId do seu RDS)
-              # Por enquanto, vamos assumir que você enviará o fileId no Job
-              user_metadata = event['detail'].get('userMetadata', {})
-              file_id = user_metadata.get('fileId')
-              output_file = event['detail']['outputGroupDetails'][0]['outputDetails'][0]['outputFilePaths'][0]
-              file_name = output_file.split('/')[-1]
+                  if status == 'COMPLETE' and file_id:
+                      # Garante que a URL tenha o formato correto
+                      base_url = os.environ['BACKEND_URL'].rstrip('/')
+                      url = f"{base_url}/{file_id}"
+                      
+                      print(f"Tentando notificar backend na URL: {url}")
+                      
+                      # IMPORTANTE: Mude para status PROCESSED
+                      payload = {
+                          "status": "PROCESSED", 
+                          "processedKey": f"processed/{file_name}"
+                      }
+                      
+                      data = json.dumps(payload).encode('utf-8')
+                      req = urllib.request.Request(url, data=data, method='PATCH')
+                      req.add_header('Content-Type', 'application/json')
 
-              if status == 'COMPLETE' and file_id:
-                  url = f"{os.environ['BACKEND_URL']}/{file_id}"
-                  data = json.dumps({"status": "UPLOADED", "processedKey": f"processed/{file_name}"}).encode('utf-8')
-
-                  req = urllib.request.Request(url, data=data, method='PATCH')
-                  req.add_header('Content-Type', 'application/json')
-
-                  with urllib.request.urlopen(req) as res:
-                      print(f"Backend notificado: {res.getcode()}")
+                      with urllib.request.urlopen(req) as res:
+                          print(f"✅ Backend notificado com sucesso: {res.getcode()}")
+                  else:
+                      print(f"Job não concluído ou sem fileId. Status: {status}, FileId: {file_id}")
+                      
+              except Exception as e:
+                  print(f"❌ Erro na Lambda de Notificação: {str(e)}")
+                  raise e
 
   # --- ECS FARGATE ---
   ECSCluster:
