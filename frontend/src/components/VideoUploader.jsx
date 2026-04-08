@@ -27,7 +27,10 @@ export function VideoUploader({ onUploadSuccess }) {
 
       // 2. Upload Direto para o S3 usando a URL recebida
       await axios.put(uploadUrl, file, {
-        headers: { 'Content-Type': file.type },
+        headers: { 
+          'Content-Type': file.type,
+          'x-amz-meta-fileid': fileId
+         },
         onUploadProgress: (progressEvent) => {
           const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
           setProgress(percentCompleted);
