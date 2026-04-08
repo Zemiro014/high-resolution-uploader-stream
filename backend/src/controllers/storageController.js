@@ -123,10 +123,12 @@ exports.confirmUpload = async (req, res) => {
       where: { id: Number(fileid) },
       data: { status: status, ...(processedKey && { videoUrl: `https://cloudfront.net{processedKey}` }) } // Ou "SUCCESS" como preferir
     });
+    console.log(`✅ Registro ${fileid} atualizado.`);
     console.log("VIDEO URL: "+updatedFile.videoUrl)
     console.log(`✅ Registro ${fileid} movido para: ${status}`);
     res.json({ message: "URL do vídeo atualizada!", videoUrl: updatedFile.videoUrl });
   } catch (err) {
+    console.error("Erro Prisma:", err);
     res.status(404).json({ err: "Erro ao atualizar status" });
   }
 };

@@ -6,6 +6,6 @@ router.post("/start-multipart", storageController.startMultipartUpload)
 router.post("/part-url", storageController.getPartPresignedUrl)
 router.post("/complete-multipart", storageController.completeMultipartUpload)
 router.post("/generate-upload-url", storageController.getUploadUrl);
-router.patch("/confirm-upload/:fileId", storageController.confirmUpload);
+router.patch("/confirm-upload/:fileid", storageController.confirmUpload);
 
 module.exports = router;
