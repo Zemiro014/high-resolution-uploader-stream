@@ -43,26 +43,30 @@ export function VideoPlayer({ videoUrl }) {
 
   if (!videoUrl) return <p>Aguardando upload ou seleção de vídeo...</p>;
 
-  return (
-    <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto' }}>
+ return (
+    <div style={{ width: '100%', animation: 'fadeIn 0.5s ease-in' }}>
       <div 
         ref={containerRef} 
         style={{ 
-          position: 'relative', width: '100%', paddingTop: '56.25%', // 16:9 Aspect Ratio
-          backgroundColor: '#000', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.3)'
+          position: 'relative', 
+          width: '100%', 
+          paddingTop: '56.25%', // 16:9
+          backgroundColor: '#000', 
+          borderRadius: '16px', 
+          overflow: 'hidden',
+          boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)'
         }}
       >
         <video
           ref={videoRef}
-          style={{ 
-            position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' 
-          }}
+          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
           autoPlay
         />
       </div>
-      <p style={{ marginTop: '15px', fontSize: '0.9rem', color: '#666' }}>
-        • Resolução adaptativa (HLS/Dash) via Shaka Player
-      </p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '16px', color: '#6b7280', fontSize: '0.875rem' }}>
+        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#059669' }}></div>
+        Reproduzindo em Alta Definição (HLS/Dash)
+      </div>
     </div>
   );
 }

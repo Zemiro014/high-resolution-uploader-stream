@@ -2,6 +2,7 @@ import { useState } from 'react';
 import axios from 'axios';
 import PropTypes from 'prop-types';
 import { storageService } from '../api/storageService';
+import { Upload, CheckCircle2, Loader2, Play } from 'lucide-react';
 
 export function VideoUploader({ onUploadSuccess }) {
   const [currentFileId, setCurrentFileId] = useState(null);
@@ -91,53 +92,112 @@ export function VideoUploader({ onUploadSuccess }) {
     }
   };
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
-        <label style={{ 
-          padding: '12px 20px', backgroundColor: '#f0f0f0', borderRadius: '8px', cursor: 'pointer', border: '1px solid #ccc' 
-        }}>
-          {file ? file.name : "Selecionar Vídeo"}
-          <input type="file" accept="video/*" onChange={handleFileChange} hidden />
-        </label>
-
-        <button 
-          onClick={uploadVideo} 
-          disabled={!file || isUploading}
-          style={{ 
-            padding: '12px 30px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '8px',
-            fontWeight: '600', cursor: isUploading ? 'not-allowed' : 'pointer', opacity: isUploading ? 0.7 : 1
-          }}
-        >
-          {isUploading ? `Enviando ${progress}%` : "Fazer Upload"}
-        </button>
+return (
+    <div style={{
+      background: '#fff',
+      padding: '24px',
+      borderRadius: '16px',
+      boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+      border: '1px solid #f0f0f0'
+    }}>
+      <div style={{ marginBottom: '20px' }}>
+        <h3 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#111827', marginBottom: '4px' }}>
+          Novo Vídeo
+        </h3>
+        <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+          Formatos suportados: MP4, MOV. Alta resolução garantida.
+        </p>
       </div>
 
-      {isUploading && (
-        <div style={{ height: '8px', width: '100%', backgroundColor: '#eee', borderRadius: '4px', overflow: 'hidden' }}>
-          <div style={{ width: `${progress}%`, height: '100%', backgroundColor: '#007bff', transition: 'width 0.4s ease' }} />
-        </div>
-      )}
-
-      {isProcessing && (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <div style={{ 
-          marginTop: '20px', padding: '20px', backgroundColor: '#e7f3ff', borderRadius: '8px', 
-          border: '1px solid #b3d7ff', textAlign: 'center' 
+          border: '2px dashed #e5e7eb', 
+          borderRadius: '12px', 
+          padding: '40px', 
+          textAlign: 'center',
+          backgroundColor: isUploading ? '#f9fafb' : 'transparent'
         }}>
-          <p style={{ color: '#0056b3', fontWeight: '500', marginBottom: '15px' }}>
-            🎉 Upload concluído! Estamos otimizando seu vídeo para alta resolução.
-          </p>
+          {!isUploading && !isProcessing && (
+            <>
+              <Upload style={{ margin: '0 auto 12px', color: '#9ca3af' }} size={32} />
+              <input 
+                type="file" 
+                id="file-upload" 
+                accept="video/*" 
+                onChange={handleFileChange} 
+                style={{ display: 'none' }} 
+              />
+              <label htmlFor="file-upload" style={{ cursor: 'pointer', color: '#2563eb', fontWeight: '500' }}>
+                Clique para selecionar
+              </label>
+              <p style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '4px' }}>
+                {file ? file.name : "Nenhum arquivo selecionado"}
+              </p>
+            </>
+          )}
+
+          {isUploading && (
+            <div>
+              <Loader2 className="animate-spin" style={{ margin: '0 auto 12px', color: '#2563eb' }} />
+              <p style={{ fontWeight: '500', color: '#374151' }}>Enviando partes... {progress}%</p>
+              <div style={{ width: '100%', height: '6px', background: '#e5e7eb', borderRadius: '3px', marginTop: '12px', overflow: 'hidden' }}>
+                <div style={{ width: `${progress}%`, height: '100%', background: '#2563eb', transition: 'width 0.3s' }} />
+              </div>
+            </div>
+          )}
+
+          {isProcessing && (
+            <div style={{ animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}>
+              <CheckCircle2 style={{ margin: '0 auto 12px', color: '#059669' }} />
+              <p style={{ fontWeight: '600', color: '#059669' }}>Upload Concluído!</p>
+              <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>O MediaConvert está processando sua alta resolução...</p>
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
           <button 
-            onClick={handleCheckAndPlay}
-            disabled={checking}
-            style={{ 
-              padding: '10px 25px', backgroundColor: '#0056b3', color: 'white', border: 'none', borderRadius: '20px', cursor: 'pointer' 
+            onClick={uploadVideo} 
+            disabled={!file || isUploading || isProcessing}
+            style={{
+              padding: '10px 20px',
+              borderRadius: '8px',
+              border: 'none',
+              background: (!file || isUploading || isProcessing) ? '#e5e7eb' : '#2563eb',
+              color: '#fff',
+              fontWeight: '500',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
             }}
           >
-            {checking ? "Verificando..." : "Verificar se está pronto"}
+            {isUploading ? 'Processando...' : 'Iniciar Upload'}
           </button>
+
+          {isProcessing && (
+            <button 
+              onClick={handleCheckAndPlay}
+              disabled={checking}
+              style={{
+                padding: '10px 20px',
+                borderRadius: '8px',
+                border: '1px solid #2563eb',
+                background: '#eff6ff',
+                color: '#2563eb',
+                fontWeight: '600',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              {checking ? <Loader2 size={18} className="animate-spin" /> : <Play size={18} />}
+              {checking ? 'Verificando...' : 'Assistir Agora'}
+            </button>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
