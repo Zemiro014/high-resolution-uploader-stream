@@ -10,27 +10,31 @@ export function VideoPlayer({ videoUrl }) {
   useEffect(() => {
     if (!videoUrl) return;
 
-    const player = new shaka.Player(videoRef.current);
+    // CORREÇÃO: Garante que a URL seja absoluta para evitar duplicação pelo navegador
+    const absoluteUrl = videoUrl.startsWith('http') 
+      ? videoUrl 
+      : `https://${videoUrl}`;
 
-    // Configuração de UI (Controles bonitos do Google)
+    // Recomendado: inicializar sem o elemento no construtor para evitar o aviso de migração
+    const player = new shaka.Player();
+    player.attach(videoRef.current);
+
     const ui = new shaka.ui.Overlay(
       player,
       containerRef.current,
       videoRef.current
     );
 
-    // Ouvir erros críticos
     player.addEventListener('error', (event) => {
       console.error('Erro no Shaka Player:', event.detail);
     });
 
-    // Carregar o vídeo do S3
-    console.log("URL do Video vindo do Backend: "+videoUrl)
-    player.load(videoUrl).then(() => {
+    console.log("URL Absoluta enviada ao Shaka:", absoluteUrl);
+
+    player.load(absoluteUrl).then(() => {
       console.log('Vídeo carregado com sucesso via Shaka!');
     }).catch(e => console.error("Erro ao carregar vídeo:", e));
 
-    // Cleanup ao desmontar o componente
     return () => {
       player.destroy();
       ui.destroy();
