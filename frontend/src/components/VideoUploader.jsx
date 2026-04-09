@@ -9,6 +9,7 @@ export function VideoUploader({ onUploadSuccess }) {
   const [file, setFile] = useState(null);
   const [progress, setProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [checking, setChecking] = useState(false)
 
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
@@ -74,58 +75,66 @@ export function VideoUploader({ onUploadSuccess }) {
     }
   };
 
-    const handleCheckAndPlay = async () => {
+  const handleCheckAndPlay = async () => {
+    setChecking(true);
     try {
       const { data } = await storageService.getVideoDetails(currentFileId);
-      
       if (data.status === "PROCESSED" && data.videoUrl) {
-        onUploadSuccess(data.videoUrl); // Envia a URL para o player
+        onUploadSuccess(data.videoUrl);
         setIsProcessing(false);
       } else {
-        alert("O vídeo ainda está sendo processado. Tente novamente em alguns segundos.");
+        // Feedback suave em vez de alert
+        alert("Ainda processando... tente em 5 segundos."); 
       }
-    } catch (error) {
-      alert(`Erro ao verificar status do vídeo: ${error}`);
+    } finally {
+      setChecking(false);
     }
   };
 
   return (
-    <div style={{ border: '1px solid #ccc', padding: '20px', borderRadius: '8px' }}>
-      <h3>Upload de Vídeo Profissional</h3>
-      <input 
-        type="file" 
-        accept="video/*" 
-        onChange={handleFileChange} 
-        disabled={isUploading}
-      />
-      
-      <button 
-        onClick={uploadVideo} 
-        disabled={!file || isUploading}
-        style={{ marginLeft: '10px' }}
-      >
-        {isUploading ? `Enviando ${progress}%` : "Iniciar Upload"}
-      </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+        <label style={{ 
+          padding: '12px 20px', backgroundColor: '#f0f0f0', borderRadius: '8px', cursor: 'pointer', border: '1px solid #ccc' 
+        }}>
+          {file ? file.name : "Selecionar Vídeo"}
+          <input type="file" accept="video/*" onChange={handleFileChange} hidden />
+        </label>
+
+        <button 
+          onClick={uploadVideo} 
+          disabled={!file || isUploading}
+          style={{ 
+            padding: '12px 30px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '8px',
+            fontWeight: '600', cursor: isUploading ? 'not-allowed' : 'pointer', opacity: isUploading ? 0.7 : 1
+          }}
+        >
+          {isUploading ? `Enviando ${progress}%` : "Fazer Upload"}
+        </button>
+      </div>
 
       {isUploading && (
-        <div style={{ width: '100%', backgroundColor: '#ddd', marginTop: '10px' }}>
-          <div style={{ 
-            width: `${progress}%`, 
-            height: '10px', 
-            backgroundColor: '#4caf50',
-            transition: 'width 0.3s' 
-          }} />
+        <div style={{ height: '8px', width: '100%', backgroundColor: '#eee', borderRadius: '4px', overflow: 'hidden' }}>
+          <div style={{ width: `${progress}%`, height: '100%', backgroundColor: '#007bff', transition: 'width 0.4s ease' }} />
         </div>
       )}
 
       {isProcessing && (
-        <div className="mt-4 p-4 border rounded bg-blue-50">
-          <p className="text-blue-700">Vídeo enviado com sucesso!</p>
+        <div style={{ 
+          marginTop: '20px', padding: '20px', backgroundColor: '#e7f3ff', borderRadius: '8px', 
+          border: '1px solid #b3d7ff', textAlign: 'center' 
+        }}>
+          <p style={{ color: '#0056b3', fontWeight: '500', marginBottom: '15px' }}>
+            🎉 Upload concluído! Estamos otimizando seu vídeo para alta resolução.
+          </p>
           <button 
             onClick={handleCheckAndPlay}
-            className="mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            disabled={checking}
+            style={{ 
+              padding: '10px 25px', backgroundColor: '#0056b3', color: 'white', border: 'none', borderRadius: '20px', cursor: 'pointer' 
+            }}
           >
-            Assistir Vídeo
+            {checking ? "Verificando..." : "Verificar se está pronto"}
           </button>
         </div>
       )}

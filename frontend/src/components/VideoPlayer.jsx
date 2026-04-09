@@ -42,16 +42,25 @@ export function VideoPlayer({ videoUrl }) {
   if (!videoUrl) return <p>Aguardando upload ou seleção de vídeo...</p>;
 
   return (
-    <div 
-      ref={containerRef} 
-      style={{ maxWidth: '800px', margin: '20px auto', backgroundColor: 'black' }}
-    >
-      <video
-        ref={videoRef}
-        style={{ width: '100%', height: '100%' }}
-        poster="https://placeholder.com..."
-        autoPlay
-      />
+    <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto' }}>
+      <div 
+        ref={containerRef} 
+        style={{ 
+          position: 'relative', width: '100%', paddingTop: '56.25%', // 16:9 Aspect Ratio
+          backgroundColor: '#000', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.3)'
+        }}
+      >
+        <video
+          ref={videoRef}
+          style={{ 
+            position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' 
+          }}
+          autoPlay
+        />
+      </div>
+      <p style={{ marginTop: '15px', fontSize: '0.9rem', color: '#666' }}>
+        • Resolução adaptativa (HLS/Dash) via Shaka Player
+      </p>
     </div>
   );
 }
