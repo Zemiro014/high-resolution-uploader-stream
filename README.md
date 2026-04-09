@@ -7,11 +7,8 @@ A high-performance **Video-on-Demand (VOD)** platform designed to handle high-re
 ## 📐 System Architecture
 
 The system was engineered following the principles of decoupling, security, and horizontal scalability:
+<img width="1104" height="466" alt="Captura de tela de 2026-04-04 09-03-42" src="https://github.com/user-attachments/assets/e6b57fe9-aa33-4645-a191-c0883bad30dd" />
 
-<p align="center">
-  <!-- Replace the path below with the actual image path in your repository -->
-  <img src="./assets/architecture-diagram.png" alt="AWS VOD Architecture" width="850px">
-</p>
 
 ### Workflow Overview:
 1.  **Resilient Upload:** The Frontend (React) utilizes **S3 Multipart Upload** to send large high-res files directly to S3. This bypasses the Node.js server to avoid **RAM bottlenecks** and **request timeouts**.
