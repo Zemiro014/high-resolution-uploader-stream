@@ -24,5 +24,7 @@ export const storageService = {
 
   // 3. Confirma o sucesso no seu Backend
   confirmUpload: (fileId) => 
-    api.patch(`/storage/confirm-upload/${fileId}`)
+    api.patch(`/storage/confirm-upload/${fileId}`),
+
+  getVideoDetails: (fileId) => api.get(`/storage/video/${fileId}`),
 }

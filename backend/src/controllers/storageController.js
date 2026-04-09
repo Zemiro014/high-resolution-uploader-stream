@@ -105,9 +105,7 @@ exports.getUploadUrl = async (req, res) => {
 };
 
 exports.confirmUpload = async (req, res) => {
-  const { fileid } = req.params;
-  // const status = (req.body && req.body.status) ? req.body.status : "PROCESSING";
-  // const { processedKey } = req.body; 
+  const { fileid } = req.params; 
   const { status, processedKey } = req.body || {};
 
     try {
@@ -118,38 +116,34 @@ exports.confirmUpload = async (req, res) => {
         status: status || "UPLOADED", 
         // Só atualiza a URL se o processedKey existir (vindo da Lambda)
         ...(processedKey && { 
-          videoUrl: `https://cloudfront.net{processedKey}` 
+          videoUrl: `d1m1zxgjsqqb4m.cloudfront.net/${processedKey}` 
         })
       }
     });
 
-    res.json({ message: "Sucesso", videoUrl: updatedFile.videoUrl });
+    res.json({ message: "Upload Finalizado com Sucesso!", videoUrl: updatedFile.videoUrl });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Erro ao atualizar banco" });
   }
+};
 
-  // console.log("STATUUUUUUUUUUUSSSS: "+status)
-  // console.log("FILE ID CHEGOU NO confirmUpload: "+fileid)
-
-  // try {
-  //   const currentFile = await prisma.file.findUnique({ where: { id: Number(fileid) } });
+// GET /api/storage/video/:fileid
+exports.getVideoStatus = async (req, res) => {
+  const { fileid } = req.params;
+  try {
+    const file = await prisma.file.findUnique({
+      where: { id: Number(fileid) }
+    });
     
-  //   // Se o status já for o mesmo, apenas retorne 200 sem fazer nada
-  //   if (currentFile?.status === status) {
-  //     return res.json({ message: "Status já atualizado", file: currentFile });
-  //   }
+    if (!file) return res.status(404).json({ error: "Vídeo não encontrado" });
     
-  //   const updatedFile = await prisma.file.update({
-  //     where: { id: Number(fileid) },
-  //     data: { status: status, ...(processedKey && { videoUrl: `https://cloudfront.net{processedKey}` }) } // Ou "SUCCESS" como preferir
-  //   });
-  //   console.log(`✅ Registro ${fileid} atualizado.`);
-  //   console.log("VIDEO URL: "+updatedFile.videoUrl)
-  //   console.log(`✅ Registro ${fileid} movido para: ${status}`);
-  //   res.json({ message: "URL do vídeo atualizada!", videoUrl: updatedFile.videoUrl });
-  // } catch (err) {
-  //   console.error("Erro Prisma:", err);
-  //   res.status(500).json({ error: "Erro interno ao atualizar banco" });
-  // }
+    // Retorna o status e a URL (que pode ser null se a Lambda ainda não terminou)
+    res.json({ 
+      status: file.status, 
+      videoUrl: file.videoUrl 
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao buscar status" });
+  }
 };
