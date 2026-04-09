@@ -516,6 +516,8 @@ Resources:
               Value: '3000'
             - Name: S3_BUCKET_NAME
               Value: !Ref VideoStorageBucket
+            - Name: CLOUDFRONT_URL
+              Value: !GetAtt MyDistribution.DomainName
 
   BackendService:
     Type: AWS::ECS::Service
@@ -593,7 +595,7 @@ Resources:
             Principal:
               CanonicalUser: !GetAtt CloudFrontOriginAccessIdentity.S3CanonicalUserId
             Action: s3:GetObject
-            Resource: !Sub ${VideoProcessedBucket.Arn}/*
+            Resource: !Sub "arn:aws:s3:::${VideoProcessedBucket}/*"
 
   # --- CLOUDFRONT COMO PROXY (REACT + API) --
   MyDistribution:

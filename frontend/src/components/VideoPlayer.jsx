@@ -7,9 +7,6 @@ export function VideoPlayer({ videoUrl }) {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
 
-  // Gere a URL (Lembre-se: se o bucket for privado, use a URL pré-assinada)
-  // const videoUrl = `https://amazonaws.com{fileKey}`;
-
   useEffect(() => {
     if (!videoUrl) return;
 
@@ -28,6 +25,7 @@ export function VideoPlayer({ videoUrl }) {
     });
 
     // Carregar o vídeo do S3
+    console.log("URL do Video vindo do Backend: "+videoUrl)
     player.load(videoUrl).then(() => {
       console.log('Vídeo carregado com sucesso via Shaka!');
     }).catch(e => console.error("Erro ao carregar vídeo:", e));

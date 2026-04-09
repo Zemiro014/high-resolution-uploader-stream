@@ -107,6 +107,7 @@ exports.getUploadUrl = async (req, res) => {
 exports.confirmUpload = async (req, res) => {
   const { fileid } = req.params; 
   const { status, processedKey } = req.body || {};
+  const cloudfrontDomain = process.env.CLOUDFRONT_URL;
 
     try {
     const updatedFile = await prisma.file.update({
@@ -116,7 +117,7 @@ exports.confirmUpload = async (req, res) => {
         status: status || "UPLOADED", 
         // Só atualiza a URL se o processedKey existir (vindo da Lambda)
         ...(processedKey && { 
-          videoUrl: `d1m1zxgjsqqb4m.cloudfront.net/${processedKey}` 
+          videoUrl: `${cloudfrontDomain}/${processedKey}` 
         })
       }
     });
