@@ -1,33 +1,56 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { VideoUploader } from './components/VideoUploader';
 import { VideoPlayer } from './components/VideoPlayer';
+import { VideoGallery } from './components/VideoGallery';
+import { storageService } from './api/storageService';
+import { ToastContainer } from 'react-toastify';
 
 function App() {
-  const [videoUrl, setVideoUrl] = useState(null);
+  const [videos, setVideos] = useState([]);
+  const [selectedUrl, setSelectedUrl] = useState(null);
+
+  const fetchVideos = async () => {
+    try {
+      const { data } = await storageService.listVideos();
+      setVideos(data);
+    } catch (err) {
+      console.error(`Erro ao carregar galeria: ${err}`);
+    }
+  };
+
+  useEffect(() => {
+    fetchVideos();
+  }, []);
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '40px 20px', fontFamily: 'Inter, system-ui, sans-serif' }}>
-      <header style={{ textAlign: 'center', marginBottom: '40px' }}>
-        <h1 style={{ color: '#1a1a1a', fontSize: '2.5rem' }}>Studio VOD</h1>
-        <p style={{ color: '#666' }}>Upload de alta resolução com processamento AWS</p>
-      </header>
+    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px' }}>
+      <h1>Plataforma VOD</h1>
       
-      <section style={{ backgroundColor: '#fff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', padding: '30px' }}>
-        <VideoUploader onUploadSuccess={(url) => setVideoUrl(url)} />
-      </section>
+      {/* Ao terminar o upload, recarregamos a galeria */}
+      <VideoUploader onUploadSuccess={() => {
+        fetchVideos();
+        setSelectedUrl(null); // Opcional: resetar player
+      }} />
 
-      <section style={{ marginTop: '50px' }}>
-        {videoUrl ? (
-          <div style={{ animation: 'fadeIn 0.8s ease' }}>
-            <h2 style={{ marginBottom: '20px' }}>Seu Vídeo Processado</h2>
-            <VideoPlayer videoUrl={videoUrl} />
+      {selectedUrl && (
+        <section style={{ marginTop: '40px', animation: 'fadeIn 0.5s' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+             <h2>Assistindo agora</h2>
+             <button onClick={() => setSelectedUrl(null)} style={{ cursor: 'pointer', border: 'none', background: 'none', color: '#ef4444' }}>Fechar Player ✕</button>
           </div>
-        ) : (
-          <div style={{ textAlign: 'center', padding: '60px', border: '2px dashed #ddd', borderRadius: '12px', color: '#888' }}>
-             <p>O player aparecerá aqui assim que o processamento for concluído.</p>
-          </div>
-        )}
-      </section>
+          <VideoPlayer videoUrl={selectedUrl} />
+        </section>
+      )}
+
+      <VideoGallery 
+        videos={videos} 
+        onSelectVideo={(url) => {
+          setSelectedUrl(url);
+          window.scrollTo({ top: 400, behavior: 'smooth' });
+        }} 
+      />
+      
+      <ToastContainer theme="colored" />
     </div>
   );
 }

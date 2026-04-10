@@ -23,7 +23,6 @@ export function VideoUploader({ onUploadSuccess }) {
     setProgress(0);
 
     try {
-      // 1. Inicia o Multipart no S3
       const { data: initData } = await storageService.startUpload(file.name, file.type);
       const { uploadId, fileKey, fileId } = initData;
 
@@ -31,17 +30,14 @@ export function VideoUploader({ onUploadSuccess }) {
       const totalParts = Math.ceil(file.size / CHUNK_SIZE);
       const completedParts = [];
 
-      // 2. Loop para enviar cada parte
       for (let i = 0; i < totalParts; i++) {
         const partNumber = i + 1;
         const start = i * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, file.size);
         const chunk = file.slice(start, end);
 
-        // Busca URL assinada para esta parte específica
         const { data: partData } = await storageService.getPartUrl(fileKey, uploadId, partNumber);
         
-        // Upload do chunk direto para o S3
         const response = await axios.put(partData.url, chunk, {
           onUploadProgress: (e) => {
             const partProgress = Math.round(((start + e.loaded) * 100) / file.size);
@@ -49,22 +45,18 @@ export function VideoUploader({ onUploadSuccess }) {
           }
         });
 
-        // Importante: Guardar o ETag retornado pelo S3
         completedParts.push({
           ETag: response.headers.etag,
           PartNumber: partNumber
         });
       }
 
-      // 3. Finaliza no S3 (Faz o "merge" das partes)
       await storageService.completeUpload(fileKey, uploadId, completedParts);
 
-      // 4. Confirma no seu banco de dados
       const { data: confirm } = await storageService.confirmUpload(fileId);
       
       setCurrentFileId(fileId);
       setIsProcessing(true);
-      // onUploadSuccess(confirm.message);
       console.log(confirm.message)
       alert("Upload pronto! O vídeo está sendo processado.");
 
@@ -84,7 +76,6 @@ export function VideoUploader({ onUploadSuccess }) {
         onUploadSuccess(data.videoUrl);
         setIsProcessing(false);
       } else {
-        // Feedback suave em vez de alert
         alert("Ainda processando... tente em 5 segundos."); 
       }
     } finally {

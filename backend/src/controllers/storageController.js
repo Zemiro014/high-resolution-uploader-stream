@@ -57,7 +57,7 @@ exports.completeMultipartUpload = async (req, res) => {
         Bucket: process.env.S3_BUCKET_NAME,
         Key: fileKey,
         UploadId: uploadId,
-        MultipartUpload: { Parts: parts } // Array de { ETag, PartNumber }
+        MultipartUpload: { Parts: parts }
     });
 
     await s3Client.send(command);
@@ -87,9 +87,25 @@ exports.getUploadUrl = async (req, res) => {
         Key: fileKey,
         ContentType: fileType,
         Metadata: {
-          "fileid": String(fileRecord.id) // <--- ADICIONE ISSO
+          "fileid": String(fileRecord.id)
         }
     });
+
+exports.listVideos = async (req, res) => {
+  try {
+    const videos = await prisma.file.findMany({
+      where: {
+        NOT: { status: "PENDING" } 
+      },
+      orderBy: {
+        id: 'desc'
+      }
+    });
+    res.json(videos);
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao listar vídeos" });
+  }
+};
 
     try {
         const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 300});

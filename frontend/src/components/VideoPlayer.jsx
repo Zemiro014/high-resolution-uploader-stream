@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import shaka from 'shaka-player/dist/shaka-player.ui.js';
 import PropTypes from 'prop-types';
-import 'shaka-player/dist/controls.css'; // Estilos padrão do Google
+import 'shaka-player/dist/controls.css';
 
 export function VideoPlayer({ videoUrl }) {
   const videoRef = useRef(null);
@@ -10,12 +10,10 @@ export function VideoPlayer({ videoUrl }) {
   useEffect(() => {
     if (!videoUrl) return;
 
-    // CORREÇÃO: Garante que a URL seja absoluta para evitar duplicação pelo navegador
     const absoluteUrl = videoUrl.startsWith('http') 
       ? videoUrl 
       : `https://${videoUrl}`;
 
-    // Recomendado: inicializar sem o elemento no construtor para evitar o aviso de migração
     const player = new shaka.Player();
     player.attach(videoRef.current);
 
