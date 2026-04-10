@@ -91,6 +91,19 @@ exports.getUploadUrl = async (req, res) => {
         }
     });
 
+    try {
+        const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 300});
+        res.json({
+            uploadUrl,
+            fileId: fileRecord.id,
+            fileKey
+        });
+    } catch (err) {
+        console.log(err)
+        res.status(500).json({error: "Error to get Upload URL"});
+    }
+};
+
 exports.listVideos = async (req, res) => {
   try {
     const videos = await prisma.file.findMany({
@@ -105,19 +118,6 @@ exports.listVideos = async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: "Erro ao listar vídeos" });
   }
-};
-
-    try {
-        const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 300});
-        res.json({
-            uploadUrl,
-            fileId: fileRecord.id,
-            fileKey
-        });
-    } catch (err) {
-        console.log(err)
-        res.status(500).json({error: "Error to get Upload URL"});
-    }
 };
 
 exports.confirmUpload = async (req, res) => {
